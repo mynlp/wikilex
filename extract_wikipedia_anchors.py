@@ -2,8 +2,9 @@
 from lxml.etree import iterparse
 from lexicon import Lexicon
 import re
-#import click
+import click
 import argparse
+
 
 def extract_page(xml_file):
     iterator = iterparse(xml_file)
@@ -51,6 +52,8 @@ def extract_anchor_links(page):
             elif link[0].split(':')[0] in filter_namespaces:
                 continue
             entity, mention = link
+            if len(entity) < 3 or len(mention) < 3:
+                continue
             if not entity:
                 entity = mention
             if not mention:
@@ -81,7 +84,7 @@ def extract_cat(page):
 
 
 def get_links(xmlf):
-#    with click.progressbar(extract_page(xmlf)) as pages:
+    with click.progressbar(extract_page(xmlf)) as pages:
         for title, page in extract_page(xmlf):
             if page:
                 title = clean_title(title)

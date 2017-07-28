@@ -6,3 +6,4 @@ FROM
     lexicon
 WHERE
     mention in ({target_words})
+;
