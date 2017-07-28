@@ -16,7 +16,7 @@ def extract_page(xml_file):
             if current_xml_tag[1].tag.endswith("title"):
                 title = current_xml_tag[1].text
             elif current_xml_tag[1].tag.endswith("redirect"):
-                redirect = current_xml_tag[1].attrib['title'].encode("ascii", "ignore")
+                redirect = current_xml_tag[1].attrib['title'].encode("utf8", "ignore")
                 if redirect:
                     mention = clean_title(title)
                     url = 'https://en.wikipedia.org/wiki/{}'.format('_'.join(redirect.decode("ascii", "ignore").split()))
@@ -84,14 +84,14 @@ def extract_cat(page):
 
 
 def get_links(xmlf):
-    with click.progressbar(extract_page(xmlf)) as pages:
-        for title, page in extract_page(xmlf):
-            if page:
-                title = clean_title(title)
-                cat = extract_cat(page)
-                if title and len(title) > 0 and cat and len(cat) > 0:
-                    lexicon = extract_anchor_links(page)
-                    yield (cat, title, lexicon)
+    # with click.progressbar(extract_page(xmlf)) as pages:
+    for title, page in extract_page(xmlf):
+        if page:
+            title = clean_title(title)
+            cat = extract_cat(page)
+            if title and len(title) > 0 and cat and len(cat) > 0:
+                lexicon = extract_anchor_links(page)
+                yield (cat, title, lexicon)
 
 
 def main():
