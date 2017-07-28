@@ -34,7 +34,7 @@ class Lexicon:
         for mention, urls in lexicon.items():
             for url in urls:
                 list_lexicon.append((mention.replace("\'", "\'\'"), url.replace("\'", "\'\'")))
-        values = ','.join([str(elem) for elem in list_lexicon])
+        values = ','.join([str(elem).replace('("', '').replace('")', '') for elem in list_lexicon])
         values = values.replace(r"'\\'", r'"\\"').replace(r"^\\'", r'"^\\"').replace(r"\'", r"''")\
             .replace(r'"\\"', r"'\\'").replace(r'"^\\"', r"^\\'").replace("(\"", "(\'").replace("\")", "\')")\
             .replace("\", ", "\', ").replace(", \"", ", \'").replace("\"", "\'\'")

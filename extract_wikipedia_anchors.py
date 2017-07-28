@@ -2,7 +2,7 @@
 from lxml.etree import iterparse
 from lexicon import Lexicon
 import re
-import click
+# import click
 import argparse
 
 
@@ -16,10 +16,10 @@ def extract_page(xml_file):
             if current_xml_tag[1].tag.endswith("title"):
                 title = current_xml_tag[1].text
             elif current_xml_tag[1].tag.endswith("redirect"):
-                redirect = current_xml_tag[1].attrib['title'].encode("utf8", "ignore")
+                redirect = current_xml_tag[1].attrib['title'].decode("utf-8", "ignore")
                 if redirect:
                     mention = clean_title(title)
-                    url = 'https://en.wikipedia.org/wiki/{}'.format('_'.join(redirect.decode("ascii", "ignore").split()))
+                    url = 'https://en.wikipedia.org/wiki/{}'.format('_'.join(redirect.decode("utf-8", "ignore").split()))
                     if title not in redirect_lexicon.keys():
                         redirect_lexicon.update({mention: []})
                     redirect_lexicon[mention].append(url)
