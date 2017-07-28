@@ -33,9 +33,11 @@ class Lexicon:
         list_lexicon = []
         for mention, urls in lexicon.items():
             for url in urls:
-                list_lexicon.append((mention.replace("\'","\'\'"), url.replace("\'", "\'\'")))
+                list_lexicon.append((mention.replace("\'", "\'\'"), url.replace("\'", "\'\'")))
         values = ','.join([str(elem) for elem in list_lexicon])
-        values = values.replace(r"'\\'", r'"\\"').replace(r"^\\'",r'"^\\"').replace(r"\'",r"''").replace(r'"\\"',r"'\\'").replace(r'"^\\"',r"^\\'").replace("(\"", "(\'").replace("\")","\')").replace("\", ", "\', ").replace(", \"", ", \'").replace("\"","\'\'")
+        values = values.replace(r"'\\'", r'"\\"').replace(r"^\\'", r'"^\\"').replace(r"\'", r"''")\
+            .replace(r'"\\"', r"'\\'").replace(r'"^\\"', r"^\\'").replace("(\"", "(\'").replace("\")", "\')")\
+            .replace("\", ", "\', ").replace(", \"", ", \'").replace("\"", "\'\'")
         query = query_template.format(list_of_values=values)
         print(query)
         cursor = self.connection.cursor()
