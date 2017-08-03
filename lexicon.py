@@ -27,18 +27,26 @@ class Lexicon:
             lexicon[mention].append(url)
         return lexicon
 
-    def insert_mentions_urls(self, lexicon):
-        with open('{path}/insert_mentions.sql'.format(path=QUERIES_PATH), 'r') as query_file:
-            query_template = query_file.read()
-        list_lexicon = []
-        for mention, urls in lexicon.items():
-            for url in urls:
-                list_lexicon.append((mention.replace("\'", "\'\'"), url.replace("\'", "\'\'")))
-        values = ','.join([str(elem).replace('("', '').replace('")', '') for elem in list_lexicon])
-        values = values.replace(r"'\\'", r'"\\"').replace(r"^\\'", r'"^\\"').replace(r"\'", r"''")\
-            .replace(r'"\\"', r"'\\'").replace(r'"^\\"', r"^\\'").replace("(\"", "(\'").replace("\")", "\')")\
-            .replace("\", ", "\', ").replace(", \"", ", \'").replace("\"", "\'\'")
-        query = query_template.format(list_of_values=values)
-        print(query)
+    def insert_mentions_uris(self, lexicon):
+        with open('{path}/insert_mention.sql'.format(path=QUERIES_PATH), 'r') as query_file:
+            query = query_file.read()
         cursor = self.connection.cursor()
-        cursor.execute(query)
+        if lexicon:
+            for mention, uri, sentence in lexicon:
+                cursor.execute(query, (mention, uri, sentence))
+
+    def insert_categories_uri(self, uri, categories):
+        with open('{path}/insert_category.sql'.format(path=QUERIES_PATH), 'r') as query_file:
+            query = query_file.read()
+        cursor = self.connection.cursor()
+        if categories:
+            for category in categories:
+                cursor.execute(query, (uri, category))
+
+    def insert_links_uri(self, source_uri, linked_uris):
+        with open('{path}/insert_link.sql'.format(path=QUERIES_PATH), 'r') as query_file:
+            query = query_file.read()
+        cursor = self.connection.cursor()
+        if linked_uris:
+            for target_uri in linked_uris:
+                cursor.execute(query, (source_uri, target_uri))

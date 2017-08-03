@@ -1,6 +1,6 @@
 SELECT
     mention
-    , url
+    , uri
 FROM
-    lexicon
+    mention_uris
 ;

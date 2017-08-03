@@ -1,9 +1,9 @@
 -- target_words is a variable that would be filled from the calling script
 SELECT
     mention
-    , url
+    , uri
 FROM
-    lexicon
+    mention_uris
 WHERE
     mention in ({target_words})
 ;
