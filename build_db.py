@@ -1,11 +1,11 @@
 import sqlite3
 conn = sqlite3.connect(r"db/lexicon.db")
 cursor = conn.cursor()
-query = 'drop table mention_uris;'
+query = 'DROP TABLE IF EXISTS mention_uris;'
 cursor.execute(query)
-query = 'drop table entities;'
+query = 'DROP TABLE IF EXISTS entities;'
 cursor.execute(query)
-query = 'drop table categories;'
+query = 'DROP TABLE IF EXISTS categories;'
 cursor.execute(query)
 with open('queries/create_mention_uris_table.sql', 'r') as query_file:
     query = query_file.read()
