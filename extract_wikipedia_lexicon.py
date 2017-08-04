@@ -154,12 +154,13 @@ def extract_anchor_links(page):
             if not link:
                 continue
             # is is not a link to a wiki entity ignore it and continue
-            elif link[0].split(':')[0] in IGNORED_NAMESPACES:
+            elif link[0].split(':')[0] in IGNORED_NAMESPACES \
+                    or link[1].split(':')[0] in IGNORED_NAMESPACES:
                 continue
             entity, mention = link
             # if it is too short just continue
             # TODO: this may be too strict
-            if len(entity) < 3 or len(mention) < 3:
+            if len(entity) < 2 or len(mention) < 2:
                 continue
             # Sometimes the links are the mentions, in that case make them equal
             if not entity:

@@ -39,13 +39,13 @@ class Lexicon:
             query = query_file.read()
         cursor = self.connection.cursor()
         if categories:
-            for category in categories:
-                cursor.execute(query, (uri, category))
+            uri_categories = [(uri,category) for category in categories]
+            cursor.executemany(query, uri_categories)
 
     def insert_links_uri(self, source_uri, linked_uris):
         with open('{path}/insert_link.sql'.format(path=QUERIES_PATH), 'r') as query_file:
             query = query_file.read()
         cursor = self.connection.cursor()
         if linked_uris:
-            for target_uri in linked_uris:
-                cursor.execute(query, (source_uri, target_uri))
+            uri_links = [(source_uri, target_uri) for target_uri in linked_uris]
+            cursor.executemany(query, uri_links)
