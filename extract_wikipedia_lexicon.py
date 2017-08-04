@@ -169,7 +169,7 @@ def extract_anchor_links(page):
             url = format_as_uri(entity)
             if mention and url:
                 clean_sentence = remove_markup(sentence)
-                lexicon.append((url, mention, clean_sentence))
+                lexicon.append((mention, url, clean_sentence))
                 links.append(url)
     return lexicon, links
 
