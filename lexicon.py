@@ -32,8 +32,7 @@ class Lexicon:
             query = query_file.read()
         cursor = self.connection.cursor()
         if lexicon:
-            for mention, uri, sentence in lexicon:
-                cursor.execute(query, (mention, uri, sentence))
+            cursor.executemany(query, lexicon)
 
     def insert_categories_uri(self, uri, categories):
         with open('{path}/insert_category.sql'.format(path=QUERIES_PATH), 'r') as query_file:
