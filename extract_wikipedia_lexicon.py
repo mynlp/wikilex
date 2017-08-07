@@ -180,8 +180,14 @@ def clean_title(title):
 
 
 def get_category(page):
-    categories = re.findall(re.compile("\[\[Category:(.*?)\]\]"), page)
-    categories = [re.sub(re.compile("^(.*?)\|.*$"), r"\1", c).strip() for c in categories]
+    if page:
+        categories = re.findall(re.compile("\[\[Category:(.*?)\]\]"), page)
+    else:
+        print("get_category: NO PAGE!")
+    if categories:
+        categories = [re.sub(re.compile("^(.*?)\|.*$"), r"\1", c).strip() for c in categories]
+    else:
+        print("get_category: NO CATEGORIES!")
     categories = [c for c in categories if len(c) > 0]
     return categories
 
