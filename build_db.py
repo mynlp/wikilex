@@ -1,6 +1,8 @@
 import sqlite3
 conn = sqlite3.connect(r"db/lexicon.db")
 cursor = conn.cursor()
+query = 'DROP TABLE IF EXISTS lexicon;'
+cursor.execute(query)
 query = 'DROP TABLE IF EXISTS mention_uris;'
 cursor.execute(query)
 query = 'DROP TABLE IF EXISTS entities;'
