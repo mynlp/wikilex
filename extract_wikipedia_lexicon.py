@@ -186,8 +186,6 @@ def get_category(page):
         print("get_category: NO PAGE!")
     if categories:
         categories = [re.sub(re.compile("^(.*?)\|.*$"), r"\1", c).strip() for c in categories]
-    else:
-        print("get_category: NO CATEGORIES!")
     categories = [c for c in categories if len(c) > 0]
     return categories
 
@@ -198,7 +196,10 @@ def get_links(xmlf):
     for current_title, type, page in extract_page(xmlf):
         current_title = clean_title(current_title)
         current_uri = format_as_uri(current_title)
-        categories = get_category(page)
+        try:
+            categories = get_category(page)
+        except Exception as error:
+            print(error)
         lexicon = []
         links = []
         if type == 'redirect':
