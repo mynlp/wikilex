@@ -26,9 +26,9 @@ RE_P15 = re.compile('\[\[([fF]ile:|[iI]mage)[^]]*(\]\])', re.UNICODE)
 # ought to be ignored
 IGNORED_NAMESPACES = ['Wikipedia', 'Category', 'File', 'Portal', 'Template',
                       'MediaWiki', 'User', 'Help', 'Book', 'Draft',
-                      'WikiProject', 'Special', 'Talk']
-
+                      'WikiProject', 'Special', 'Talk', 'Wiktionary', 'media']
 MAX_ITERS = 5
+
 
 def remove_markup(text):
     text = re.sub(RE_P2, "", text)  # remove the last list (=languages)
@@ -38,9 +38,9 @@ def remove_markup(text):
     # for as long as something changes.
     text = remove_template(text)
     text = remove_file(text)
-    iters = 0
+    iterations = 0
     while True:
-        old, iters = text, iters + 1
+        old, iterations = text, iterations + 1
         text = re.sub(RE_P0, "", text)  # remove comments
         text = re.sub(RE_P1, '', text)  # remove footnotes
         text = re.sub(RE_P9, "", text)  # remove outside links
@@ -55,7 +55,8 @@ def remove_markup(text):
         text = re.sub(RE_P13, '\n\\3', text)  # leave only cell content
         # remove empty mark-up
         text = text.replace('[]', '')
-        if old == text or iters > MAX_ITERS:  # stop if nothing changed between two iterations or after a fixed number of iterations
+        # stop if nothing changed between two iterations or after a fixed number of iterations
+        if old == text or iterations > MAX_ITERS:
             break
 
     # the following is needed to make the tokenizer see '[[socialist]]s' as a single word 'socialists'
@@ -140,13 +141,16 @@ def extract_page(xml_file):
 
 
 def extract_anchor_links(page):
-    # TODO: Read https://en.wikipedia.org/wiki/Help:Wiki_markup
-    # TODO: Support this kind of links display:
-    #       San Francisco also has [[public transport]]ation. Examples include [[bus]]es, [[taxicab]]s, and [[tram]]s.
+    # Details at https://en.wikipedia.org/wiki/Help:Wiki_markup
     # TODO: Support this case:
     #       [[#Links and URLs]] is a link to another section on the current page.
     #       [[#Links and URLs|Links and URLs]] is a link to the same section without showing the # symbol.
-    link_regex = re.compile("\[\[([^\[\]]*?)\|?\s*([^\|\[\]]*?)\s*\]\]")
+    # The regex below return the following groups:
+    #       match 1 = '<nowiki>' or ''
+    #       match 2 = link or ''
+    #       match 3 = mention or ''
+    #       match 4 = '</nowiki>' or '<nowiki />' or mention's suffix
+    link_regex = re.compile("(<nowiki>|)\[\[([^\[\]]*?)\|?\s*([^|\[\]]*?)\s*\]\](<\/nowiki>|<nowiki />|[^<.,\s]*|)")
     links = []
     lexicon = []
     for sentence in page.split('\n'):
@@ -157,16 +161,24 @@ def extract_anchor_links(page):
             elif link[0].split(':')[0] in IGNORED_NAMESPACES \
                     or link[1].split(':')[0] in IGNORED_NAMESPACES:
                 continue
-            entity, mention = link
-            # if it is too short just continue
-            # TODO: this may be too strict
+            prefix, entity, mention, suffix = link
+            # ignore the links that should be ignored
+            if prefix == '<nowiki>' or suffix in ['</nowiki>', '<nowiki />']:
+                continue
+            elif suffix:
+                # Support cases like: [[public transport]]ation. or [[bus]]es, [[taxicab]]s, and [[tram]]s.
+                mention = mention + suffix
+            # if it is too short just continue # TODO: this may be too strict
             if len(entity) < 2 or len(mention) < 2:
                 continue
             # Sometimes the links are the mentions, in that case make them equal
+            # TODO: hide the parenthesis from the mention in this case
             if not entity:
                 entity = mention
             if not mention:
                 mention = entity
+            # delete the # from the mention display and delete the "" from the mention (italicizes the displayed word)
+            mention = mention.replace('#', '').replace('"', '')
             url = format_as_uri(entity)
             if mention and url:
                 clean_text = remove_markup(sentence)
@@ -183,6 +195,7 @@ def clean_title(title):
 
 
 def get_category(page):
+    categories = []
     if page:
         categories = re.findall(re.compile("\[\[Category:(.*?)\]\]"), page)
     else:
@@ -194,9 +207,8 @@ def get_category(page):
 
 
 def get_links(xmlf):
-    # with click.progressbar(extract_page(xmlf)) as pages:
     lexicon_db = Lexicon()
-    for current_title, type, page in extract_page(xmlf):
+    for current_title, page_type, page in extract_page(xmlf):
         current_title = clean_title(current_title)
         current_uri = format_as_uri(current_title)
         try:
@@ -205,7 +217,7 @@ def get_links(xmlf):
             print(error)
         lexicon = []
         links = []
-        if type == 'redirect':
+        if page_type == 'redirect':
             target_uri = format_as_uri(page)
             # save the redirect as a mention to the uris
             lexicon = [(current_title, target_uri, '')]
@@ -242,10 +254,15 @@ def main():
         count += 1
         if count % 10000 == 0:
             print("currently processing: ")
+            print("="*65)
             print("Title: ", title)
+            print("-" * 65)
             print("Categories: ", categories)
+            print("-" * 65)
             print("Entities: ", entities)
+            print("-" * 65)
             print("Links: ", links)
+            print("=" * 65)
             print('already processed {} pages'.format(count))
 
 
