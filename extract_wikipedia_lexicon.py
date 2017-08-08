@@ -150,7 +150,7 @@ def extract_anchor_links(page):
     #       match 2 = link or ''
     #       match 3 = mention or ''
     #       match 4 = '</nowiki>' or '<nowiki />' or mention's suffix
-    link_regex = re.compile("(<nowiki>|)\[\[([^\[\]]*?)\|?\s*([^|\[\]]*?)\s*\]\](<\/nowiki>|<nowiki />|[^<.,\s]*|)")
+    link_regex = re.compile(r"(<nowiki>|)\[\[([^\[\]]*?)\|?\s*([^|\[\]]*?)\s*\]\](</nowiki>|<nowiki />|[^<.,\s]*|)")
     links = []
     lexicon = []
     for sentence in page.split('\n'):
@@ -158,10 +158,11 @@ def extract_anchor_links(page):
             if not link:
                 continue
             # is is not a link to a wiki entity ignore it and continue
-            elif link[0].split(':')[0] in IGNORED_NAMESPACES \
-                    or link[1].split(':')[0] in IGNORED_NAMESPACES:
-                continue
             prefix, entity, mention, suffix = link
+            if entity and entity.split(':')[0] in IGNORED_NAMESPACES:
+                continue
+            elif mention and mention.split(':')[0] in IGNORED_NAMESPACES:
+                continue
             # ignore the links that should be ignored
             if prefix == '<nowiki>' or suffix in ['</nowiki>', '<nowiki />']:
                 continue
@@ -252,6 +253,7 @@ def main():
     options = args_parser.parse_args()
     # segment the text in the input files
     count = 0
+    print("Starting the Entity Extraction process...")
     for title, categories, entities, links in get_links(options.wiki_file_path):
         count += 1
         if count % 10000 == 0:
