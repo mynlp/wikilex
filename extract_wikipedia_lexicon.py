@@ -180,6 +180,7 @@ def extract_anchor_links(page):
             # delete the # from the mention display and delete the "" from the mention (italicizes the displayed word)
             mention = mention.replace('#', '').replace('"', '')
             mention = remove_markup(mention)
+            mention = mention.rstrip('\'\"-,.:;!?')
             url = format_as_uri(entity)
             if mention and url:
                 clean_text = remove_markup(sentence)
