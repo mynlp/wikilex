@@ -169,10 +169,13 @@ def extract_anchor_links(page):
                 mention = entity
             url = format_as_uri(entity)
             if mention and url:
-                clean_sentence = remove_markup(sentence)
-                lexicon.append((mention, url, clean_sentence))
+                clean_text = remove_markup(sentence)
+                sentences = clean_text.split('. ')
+                for clean_sentence in sentences:
+                    if mention in clean_sentence:
+                        lexicon.append((mention, url, clean_sentence))
                 links.append(url)
-    return lexicon, links
+    return lexicon, list(set(links))  # ignore the repeated links
 
 
 def clean_title(title):
