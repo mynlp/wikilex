@@ -240,9 +240,12 @@ def main():
     count = 0
     for title, categories, entities, links in get_links(options.wiki_file_path):
         count += 1
-        if count % 1000 == 0:
+        if count % 10000 == 0:
             print("currently processing: ")
-            print(title, categories, entities, links)
+            print("Title: ", title)
+            print("Categories: ", categories)
+            print("Entities: ", entities)
+            print("Links: ", links)
             print('already processed {} pages'.format(count))
 
 
