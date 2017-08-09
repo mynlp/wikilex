@@ -197,7 +197,7 @@ def extract_anchor_links(page):
     lexicon = []
     for line in page.split('\n'):
         for sentence in line.split('. '):
-            new_links, new_triples = get_mention_uri_context_triples(sentence)
+            new_triples, new_links = get_mention_uri_context_triples(sentence)
             if new_triples:
                 lexicon.extend(new_triples)
             if new_links:
