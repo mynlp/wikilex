@@ -156,6 +156,7 @@ def get_mention_uri_context_triples(sentence):
     #       match 4 = '</nowiki>' or '<nowiki />' or mention's suffix
     link_regex = re.compile(r"(<nowiki>|)\[\[([^\[\]]*?)\|?\s*([^|\[\]]*?)\s*\]\](</nowiki>|<nowiki />|[^<.,\s]*|)")
     triples = []
+    links = []
     for link in link_regex.findall(sentence):
         if not link:
             continue
@@ -187,7 +188,8 @@ def get_mention_uri_context_triples(sentence):
         url = format_as_uri(entity)
         clean_sentence = remove_markup(sentence)
         triples.append((mention, url, clean_sentence))
-    yield triples
+        links.append(url)
+    yield triples, links
 
 
 def extract_anchor_links(page):
@@ -195,8 +197,9 @@ def extract_anchor_links(page):
     lexicon = []
     for line in page.split('\n'):
         for sentence in line.split('. '):
-            lexicon.extend(get_mention_uri_context_triples(sentence))
-    links.extend([url for (mention, url, context) in lexicon])
+            new_links, new_triples = get_mention_uri_context_triples(sentence)
+            lexicon.extend(new_triples)
+            links.extend(new_links)
     return lexicon, list(set(links))  # ignore the repeated links
 
 
