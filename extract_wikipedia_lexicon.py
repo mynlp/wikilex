@@ -153,7 +153,10 @@ def extract_anchor_links(page):
     link_regex = re.compile(r"(<nowiki>|)\[\[([^\[\]]*?)\|?\s*([^|\[\]]*?)\s*\]\](</nowiki>|<nowiki />|[^<.,\s]*|)")
     links = []
     lexicon = []
-    for sentence in page.split('\n'):
+    sentences = []
+    for line in page.split('\n'):
+        sentences.extend(line.split('. '))
+    for sentence in sentences:
         for link in link_regex.findall(sentence):
             if not link:
                 continue
@@ -184,11 +187,9 @@ def extract_anchor_links(page):
             mention = mention.rstrip('\'\"-,.:;!?')
             url = format_as_uri(entity)
             if mention and url:
-                clean_text = remove_markup(sentence)
-                sentences = clean_text.split('. ')
-                for clean_sentence in sentences:
-                    if mention in clean_sentence:
-                        lexicon.append((mention, url, clean_sentence))
+                clean_sentence = remove_markup(sentence)
+                if mention in clean_sentence:
+                    lexicon.append((mention, url, clean_sentence))
                 links.append(url)
     return lexicon, list(set(links))  # ignore the repeated links
 
