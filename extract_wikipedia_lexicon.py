@@ -189,7 +189,7 @@ def get_mention_uri_context_triples(sentence):
         clean_sentence = remove_markup(sentence)
         triples.append((mention, url, clean_sentence))
         links.append(url)
-    yield triples, links
+    return triples, links
 
 
 def extract_anchor_links(page):
@@ -198,8 +198,10 @@ def extract_anchor_links(page):
     for line in page.split('\n'):
         for sentence in line.split('. '):
             new_links, new_triples = get_mention_uri_context_triples(sentence)
-            lexicon.extend(new_triples)
-            links.extend(new_links)
+            if new_triples:
+                lexicon.extend(new_triples)
+            if new_links:
+                links.extend(new_links)
     return lexicon, list(set(links))  # ignore the repeated links
 
 
