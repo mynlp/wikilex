@@ -135,12 +135,16 @@ def extract_page(xml_file):
                 if current_xml_tag[1].text == '10':
                     print(title, "TEMPLATE")
             elif current_xml_tag[1].tag.endswith("text"):
-                yield (title, 'text', current_xml_tag[1].text)
+                text = current_xml_tag[1].text
+                first_line = text.split('\n')[0]
+                if first_line[:12] == '#REDIRECT [[':
+                    yield (title, 'redirect', first_line[12:-2])
+                yield (title, 'text', text)
                 title = None
         current_xml_tag = next(iterator)
 
 
-def extract_anchor_links(page):
+def get_mention_uri_context_triples(sentence):
     # Details at https://en.wikipedia.org/wiki/Help:Wiki_markup
     # TODO: Support this case:
     #       [[#Links and URLs]] is a link to another section on the current page.
@@ -151,46 +155,48 @@ def extract_anchor_links(page):
     #       match 3 = mention or ''
     #       match 4 = '</nowiki>' or '<nowiki />' or mention's suffix
     link_regex = re.compile(r"(<nowiki>|)\[\[([^\[\]]*?)\|?\s*([^|\[\]]*?)\s*\]\](</nowiki>|<nowiki />|[^<.,\s]*|)")
+    triples = []
+    for link in link_regex.findall(sentence):
+        if not link:
+            continue
+        # is is not a link to a wiki entity ignore it and continue
+        prefix, entity, mention, suffix = link
+        if entity and entity.split(':')[0] in IGNORED_NAMESPACES:
+            continue
+        elif mention and mention.split(':')[0] in IGNORED_NAMESPACES:
+            continue
+        # ignore the links that should be ignored
+        if prefix == '<nowiki>' or suffix in ['</nowiki>', '<nowiki />']:
+            continue
+        elif suffix:
+            # Support cases like: [[public transport]]ation. or [[bus]]es, [[taxicab]]s, and [[tram]]s.
+            mention = mention + suffix
+        # if it is too short just continue # TODO: this may be too strict
+        if len(entity) < 2 or len(mention) < 2:
+            continue
+        # Sometimes the links are the mentions, in that case make them equal
+        # TODO: hide the parenthesis from the mention in this case
+        if not entity:
+            entity = mention
+        if not mention:
+            mention = entity
+        # delete the # from the mention display and delete the "" from the mention (italicizes the displayed word)
+        mention = mention.replace('#', '').replace('"', '')
+        mention = remove_markup(mention)
+        mention = mention.rstrip('\'\"-,.:;!?')
+        url = format_as_uri(entity)
+        clean_sentence = remove_markup(sentence)
+        triples.append((mention, url, clean_sentence))
+    yield triples
+
+
+def extract_anchor_links(page):
     links = []
     lexicon = []
-    sentences = []
     for line in page.split('\n'):
-        sentences.extend(line.split('. '))
-    for sentence in sentences:
-        for link in link_regex.findall(sentence):
-            if not link:
-                continue
-            # is is not a link to a wiki entity ignore it and continue
-            prefix, entity, mention, suffix = link
-            if entity and entity.split(':')[0] in IGNORED_NAMESPACES:
-                continue
-            elif mention and mention.split(':')[0] in IGNORED_NAMESPACES:
-                continue
-            # ignore the links that should be ignored
-            if prefix == '<nowiki>' or suffix in ['</nowiki>', '<nowiki />']:
-                continue
-            elif suffix:
-                # Support cases like: [[public transport]]ation. or [[bus]]es, [[taxicab]]s, and [[tram]]s.
-                mention = mention + suffix
-            # if it is too short just continue # TODO: this may be too strict
-            if len(entity) < 2 or len(mention) < 2:
-                continue
-            # Sometimes the links are the mentions, in that case make them equal
-            # TODO: hide the parenthesis from the mention in this case
-            if not entity:
-                entity = mention
-            if not mention:
-                mention = entity
-            # delete the # from the mention display and delete the "" from the mention (italicizes the displayed word)
-            mention = mention.replace('#', '').replace('"', '')
-            mention = remove_markup(mention)
-            mention = mention.rstrip('\'\"-,.:;!?')
-            url = format_as_uri(entity)
-            if mention and url:
-                clean_sentence = remove_markup(sentence)
-                if mention in clean_sentence:
-                    lexicon.append((mention, url, clean_sentence))
-                links.append(url)
+        for sentence in line.split('. '):
+            lexicon.extend(get_mention_uri_context_triples(sentence))
+    links.extend([url for (mention, url, context) in lexicon])
     return lexicon, list(set(links))  # ignore the repeated links
 
 
@@ -237,7 +243,7 @@ def get_links(xmlf):
                 lexicon_db.insert_links_uri(current_uri, links)
                 # save the categories obtained for the current page
                 lexicon_db.insert_categories_uri(current_uri, categories)
-        yield(current_title, categories, lexicon, links)
+        yield(current_title, page_type, categories, lexicon, links)
 
 
 def format_as_uri(entity):
@@ -255,12 +261,14 @@ def main():
     # segment the text in the input files
     count = 0
     print("Starting the Entity Extraction process...")
-    for title, categories, entities, links in get_links(options.wiki_file_path):
+    for title, page_type, categories, entities, links in get_links(options.wiki_file_path):
         count += 1
         if count % 10000 == 0:
             print("currently processing: ")
             print("="*65)
             print("Title: ", title)
+            print("-" * 65)
+            print("Page type: ", page_type)
             print("-" * 65)
             print("Categories: ", categories)
             print("-" * 65)
