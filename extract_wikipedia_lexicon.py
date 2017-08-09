@@ -121,28 +121,36 @@ def extract_page(xml_file):
     iterator = iterparse(xml_file)
     current_xml_tag = next(iterator)
     title = None
+    skip = False
     while current_xml_tag:
         if current_xml_tag[0] == 'end':
             if current_xml_tag[1].tag.endswith("title"):
                 title = current_xml_tag[1].text
-            elif current_xml_tag[1].tag.endswith("redirect"):
-                redirect = current_xml_tag[1].attrib['title']
-                if redirect:
-                    mention = clean_title(title)
-                    yield (mention, 'redirect', redirect)
-            elif current_xml_tag[1].tag.endswith("ns"):
-                # if this is page is a template
-                if current_xml_tag[1].text == '10':
-                    print(title, "TEMPLATE")
-            elif current_xml_tag[1].tag.endswith("text"):
-                text = current_xml_tag[1].text
-                link_regex = re.compile(r"#REDIRECT \[\[([^|\[\]]*?)\s*\]\]")
-                for line in text.split('\n'):
-                    redirect_link = link_regex.findall(line)
-                    if redirect_link:
-                        yield (title, 'redirect', redirect_link[0])
-                yield (title, 'text', text)
-                title = None
+                skip = False
+            if not skip:
+                if current_xml_tag[1].tag.endswith("redirect"):
+                    redirect = current_xml_tag[1].attrib['title']
+                    if redirect:
+                        mention = clean_title(title)
+                        yield (mention, 'redirect', redirect)
+                        skip = True
+                        title = None
+                elif current_xml_tag[1].tag.endswith("ns"):
+                    # if this is page is a template
+                    if current_xml_tag[1].text == '10':
+                        print(title, "TEMPLATE")
+                elif current_xml_tag[1].tag.endswith("text"):
+                    text = current_xml_tag[1].text
+                    link_regex = re.compile(r"#REDIRECT \[\[([^|\[\]]*?)\s*\]\]")
+                    for line in text.split('\n'):
+                        redirect_link = link_regex.findall(line)
+                        if redirect_link:
+                            mention = clean_title(title)
+                            yield (mention, 'redirect', redirect_link[0])
+                            skip = True
+                            title = None
+                    yield (title, 'text', text)
+                    title = None
         current_xml_tag = next(iterator)
 
 
@@ -228,12 +236,16 @@ def get_links(xmlf):
     for current_title, page_type, page in extract_page(xmlf):
         current_title = clean_title(current_title)
         current_uri = format_as_uri(current_title)
-        try:
-            categories = get_category(page)
-        except Exception as error:
-            print(error)
         lexicon = []
         links = []
+        categories = []
+        try:
+            categories = get_category(page)
+            if categories:
+                # save the categories obtained for the current page
+                lexicon_db.insert_categories_uri(current_uri, categories)
+        except Exception as error:
+            print(error)
         if page_type == 'redirect':
             target_uri = format_as_uri(page)
             # save the redirect as a mention to the uris
@@ -242,14 +254,12 @@ def get_links(xmlf):
             # save the redirect links as links between uris
             lexicon_db.insert_links_uri(current_uri, [target_uri])
         elif page:
-            if current_title and len(current_title) > 0 and categories and len(categories) > 0:
+            if current_title and len(current_title) > 0:
                 lexicon, links = extract_anchor_links(page)
                 # save the mention-uri pairs obtained in the current page
                 lexicon_db.insert_mentions_uris(lexicon)
                 # save the uris obtained in the page as the links to the current page's uri
                 lexicon_db.insert_links_uri(current_uri, links)
-                # save the categories obtained for the current page
-                lexicon_db.insert_categories_uri(current_uri, categories)
         yield(current_title, page_type, categories, lexicon, links)
 
 
