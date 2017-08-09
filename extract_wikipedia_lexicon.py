@@ -136,9 +136,11 @@ def extract_page(xml_file):
                     print(title, "TEMPLATE")
             elif current_xml_tag[1].tag.endswith("text"):
                 text = current_xml_tag[1].text
-                first_line = text.split('\n')[0]
-                if first_line[:12] == '#REDIRECT [[':
-                    yield (title, 'redirect', first_line[12:-2])
+                link_regex = re.compile(r"#REDIRECT \[\[([^|\[\]]*?)\s*\]\]")
+                for line in text.split('\n'):
+                    redirect_link = link_regex.findall(line)
+                    if redirect_link:
+                        yield (title, 'redirect', redirect_link[0])
                 yield (title, 'text', text)
                 title = None
         current_xml_tag = next(iterator)
