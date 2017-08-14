@@ -198,7 +198,7 @@ def get_mention_uri_context_triples(sentence):
         # delete the # from the mention display and delete the "" from the mention (italicizes the displayed word)
         mention = mention.replace('#', '').replace('"', '')
         mention = remove_markup(mention)
-        mention = mention.rstrip('\'\"-,.:;!?')
+        mention = mention.rstrip('\'"-,.:;!?})')
         url = format_as_uri(entity)
         clean_sentence = remove_markup(sentence)
         triples.append((mention, url, clean_sentence))
