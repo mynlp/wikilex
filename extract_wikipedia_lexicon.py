@@ -117,30 +117,34 @@ def remove_file(s):
     return s
 
 
+def is_tag(current_xml_tag, tag_string):
+    return current_xml_tag[1].tag.endswith(tag_string)
+
+
 def extract_page(xml_file):
     iterator = iterparse(xml_file)
-    current_xml_tag = next(iterator)
+    current_tag = next(iterator)
     title = None
     skip = False
-    while current_xml_tag:
-        if current_xml_tag[0] == 'end':
-            if current_xml_tag[1].tag.endswith("title"):
-                title = current_xml_tag[1].text
+    while current_tag:
+        if current_tag[0] == 'end':
+            if is_tag(current_tag, "title"):
+                title = current_tag[1].text
                 skip = False
             if not skip:
-                if current_xml_tag[1].tag.endswith("redirect"):
-                    redirect = current_xml_tag[1].attrib['title']
+                if is_tag(current_tag, "redirect"):
+                    redirect = current_tag[1].attrib['title']
                     if redirect:
                         mention = clean_title(title)
                         yield (mention, 'redirect', redirect)
                         skip = True
                         title = None
-                elif current_xml_tag[1].tag.endswith("ns"):
+                elif is_tag(current_tag, "ns"):
                     # if this is page is a template
-                    if current_xml_tag[1].text == '10':
+                    if current_tag[1].text == '10':
                         print(title, "TEMPLATE")
-                elif current_xml_tag[1].tag.endswith("text"):
-                    text = current_xml_tag[1].text
+                elif is_tag(current_tag, "text"):
+                    text = current_tag[1].text
                     link_regex = re.compile(r"#REDIRECT \[\[([^|\[\]]*?)\s*\]\]")
                     for line in text.split('\n'):
                         redirect_link = link_regex.findall(line)
@@ -151,7 +155,7 @@ def extract_page(xml_file):
                             title = None
                     yield (title, 'text', text)
                     title = None
-        current_xml_tag = next(iterator)
+        current_tag = next(iterator)
 
 
 def get_mention_uri_context_triples(sentence):
@@ -216,7 +220,11 @@ def extract_anchor_links(page):
 
 
 def clean_title(title):
-    return re.sub(re.compile("|.*"), "", title)
+    if title:
+        return re.sub(re.compile("|.*"), "", title)
+    else:
+        print(title)
+        return ''
 
 
 def get_category(page):
@@ -280,7 +288,7 @@ def main():
     print("Starting the Entity Extraction process...")
     for title, page_type, categories, entities, links in get_links(options.wiki_file_path):
         count += 1
-        if count % 10000 == 0:
+        if count % 1000 == 0:
             print("currently processing: ")
             print("="*65)
             print("Title: ", title)
