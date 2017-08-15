@@ -158,17 +158,27 @@ def extract_page(xml_file):
         current_tag = next(iterator)
 
 
+def is_invalid_link(prefix, suffix):
+    return prefix == '<nowiki>' or prefix.startswith('<ref name=') or \
+           suffix in ['</nowiki>', '<nowiki />'] or suffix.endswith('</ref>')
+
+
 def get_mention_uri_context_triples(sentence):
     # Details at https://en.wikipedia.org/wiki/Help:Wiki_markup
     # TODO: Support this case:
     #       [[#Links and URLs]] is a link to another section on the current page.
     #       [[#Links and URLs|Links and URLs]] is a link to the same section without showing the # symbol.
     # The regex below return the following groups:
-    #       match 1 = '<nowiki>' or ''
+    #       match 1 = '<nowiki>' or <ref_name=...> or ''
     #       match 2 = link or ''
     #       match 3 = mention or ''
-    #       match 4 = '</nowiki>' or '<nowiki />' or mention's suffix
-    link_regex = re.compile(r"(<nowiki>|)\[\[([^\[\]]*?)\|?\s*([^|\[\]]*?)\s*\]\](</nowiki>|<nowiki />|[^<.,\s]*|)")
+    #       match 4 = '</nowiki>' or '<nowiki />' or </ref> or mention's suffix
+    prefix_regex = r"(<nowiki>|<ref name=.*?>|)"
+    suffix_regex = r"(</nowiki>|,.*?</ref>|<nowiki />|[^<.,\s]*|)"
+    wikilink_regex = r"\[\[([^\[\]]*?)\|?\s*([^|\[\]]*?)\s*\]\]"
+    link_regex = re.compile(r"{prefix}{link}{suffix}".format(prefix=prefix_regex,
+                                                             link=wikilink_regex,
+                                                             suffix=suffix_regex))
     triples = []
     links = []
     for link in link_regex.findall(sentence):
@@ -181,7 +191,7 @@ def get_mention_uri_context_triples(sentence):
         elif mention and mention.split(':')[0] in IGNORED_NAMESPACES:
             continue
         # ignore the links that should be ignored
-        if prefix == '<nowiki>' or suffix in ['</nowiki>', '<nowiki />']:
+        if is_invalid_link(prefix, suffix):
             continue
         elif suffix:
             # Support cases like: [[public transport]]ation. or [[bus]]es, [[taxicab]]s, and [[tram]]s.
@@ -190,15 +200,18 @@ def get_mention_uri_context_triples(sentence):
         if len(entity) < 2 or len(mention) < 2:
             continue
         # Sometimes the links are the mentions, in that case make them equal
-        # TODO: hide the parenthesis from the mention in this case
         if not entity:
             entity = mention
-        if not mention:
-            mention = entity
+            # hide the parenthesis from the mention in this case
+            link_mention_regex = re.compile(r"^([^\s.:#,]*?) \([^<.,\s]*\)$")
+            displayed_mention = link_mention_regex.findall(mention)
+            if displayed_mention:
+                mention = displayed_mention[0]
         # delete the # from the mention display and delete the "" from the mention (italicizes the displayed word)
         mention = mention.replace('#', '').replace('"', '')
         mention = remove_markup(mention)
         mention = mention.rstrip('\'"-,.:;!?})')
+        mention = mention.lstrip('\'"-,.:;!?({')
         url = format_as_uri(entity)
         clean_sentence = remove_markup(sentence)
         triples.append((mention, url, clean_sentence))
