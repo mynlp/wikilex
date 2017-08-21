@@ -144,17 +144,18 @@ def extract_page(xml_file):
                     if current_tag[1].text == '10':
                         print(title, "TEMPLATE")
                 elif is_tag(current_tag, "text"):
-                    text = current_tag[1].text
                     link_regex = re.compile(r"#REDIRECT \[\[([^|\[\]]*?)\s*\]\]")
-                    for line in text.split('\n'):
-                        redirect_link = link_regex.findall(line)
-                        if redirect_link:
-                            mention = clean_title(title)
-                            yield (mention, 'redirect', redirect_link[0])
-                            skip = True
-                            title = None
-                    yield (title, 'text', text)
-                    title = None
+                    text = current_tag[1].text
+                    if text:
+                        for line in text.split('\n'):
+                            redirect_link = link_regex.findall(line)
+                            if redirect_link:
+                                mention = clean_title(title)
+                                yield (mention, 'redirect', redirect_link[0])
+                                skip = True
+                                title = None
+                        yield (title, 'text', text)
+                        title = None
         current_tag = next(iterator)
 
 
@@ -252,39 +253,49 @@ def get_category(page):
     return categories
 
 
-def get_links(xmlf):
+def get_links(xmlf, article_numbers):
     lexicon_db = Lexicon()
+    article_count = 0
     for current_title, page_type, page in extract_page(xmlf):
-        current_title = clean_title(current_title)
-        current_uri = format_as_uri(current_title)
-        lexicon = []
-        links = []
-        categories = []
+        if article_count <= article_numbers:
+            continue
         try:
-            categories = get_category(page)
-            if categories:
-                # save the categories obtained for the current page
-                lexicon_db.insert_categories_uri(current_uri, categories)
-        except Exception as error:
-            print(error)
-        if page_type == 'redirect':
-            target_uri = format_as_uri(page)
-            # save the redirect as a mention to the uris
-            lexicon = [(current_title, target_uri, '')]
-            lexicon_db.insert_mentions_uris(lexicon)
-            # save the redirect links as links between uris
-            lexicon_db.insert_links_uri(current_uri, [target_uri])
-        elif page:
-            if current_title and len(current_title) > 0:
+            if not current_title:
+                continue
+            current_title = clean_title(current_title)
+            current_uri = format_as_uri(current_title)
+            lexicon = []
+            links = []
+            categories = []
+            try:
+                categories = get_category(page)
+                if categories:
+                    # save the categories obtained for the current page
+                    lexicon_db.insert_categories_uri(current_uri, categories)
+            except Exception as error:
+                print(error)
+            if page_type == 'redirect':
+                target_uri = format_as_uri(page)
+                # save the redirect as a mention to the uris
+                lexicon = [(current_title, target_uri, '')]
+                lexicon_db.insert_mentions_uris(lexicon)
+                # save the redirect links as links between uris
+                lexicon_db.insert_links_uri(current_uri, [target_uri])
+            elif page:
                 lexicon, links = extract_anchor_links(page)
                 # save the mention-uri pairs obtained in the current page
                 lexicon_db.insert_mentions_uris(lexicon)
                 # save the uris obtained in the page as the links to the current page's uri
                 lexicon_db.insert_links_uri(current_uri, links)
-        yield(current_title, page_type, categories, lexicon, links)
+            yield(current_title, page_type, categories, lexicon, links)
+        except Exception as error:
+            print(error)
+            print("Last article count: ", article_count)
+        article_count += 1
 
 
 def format_as_uri(entity):
+    assert entity
     return 'https://en.wikipedia.org/wiki/{}'.format('_'.join(entity.split()))
 
 
@@ -295,11 +306,16 @@ def main():
                              default='./data/wiki.xml',
                              help='Sets the path to wikipedia dump xml file',
                              type=str)
+    args_parser.add_argument('--article_number',
+                             dest='article_number',
+                             default=-1,
+                             help='amount of articles already processed before',
+                             type=int)
     options = args_parser.parse_args()
     # segment the text in the input files
     count = 0
     print("Starting the Entity Extraction process...")
-    for title, page_type, categories, entities, links in get_links(options.wiki_file_path):
+    for title, page_type, categories, entities, links in get_links(options.wiki_file_path, options.article_number):
         count += 1
         if count % 1000 == 0:
             print("currently processing: ")
