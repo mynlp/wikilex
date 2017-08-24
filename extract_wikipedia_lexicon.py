@@ -154,7 +154,7 @@ def extract_page(xml_file):
         current_xml_tag = next(iterator)
 
 
-def get_mention_uri_context_triples(sentence):
+def get_mention_uri_context_tuples(source_uri, sentence):
     # Details at https://en.wikipedia.org/wiki/Help:Wiki_markup
     # TODO: Support this case:
     #       [[#Links and URLs]] is a link to another section on the current page.
@@ -165,7 +165,7 @@ def get_mention_uri_context_triples(sentence):
     #       match 3 = mention or ''
     #       match 4 = '</nowiki>' or '<nowiki />' or mention's suffix
     link_regex = re.compile(r"(<nowiki>|)\[\[([^\[\]]*?)\|?\s*([^|\[\]]*?)\s*\]\](</nowiki>|<nowiki />|[^<.,\s]*|)")
-    triples = []
+    tuples = []
     links = []
     for link in link_regex.findall(sentence):
         if not link:
@@ -197,19 +197,19 @@ def get_mention_uri_context_triples(sentence):
         mention = mention.rstrip('\'"-,.:;!?})')
         url = format_as_uri(entity)
         clean_sentence = remove_markup(sentence)
-        triples.append((mention, url, clean_sentence))
-        links.append(url)
-    return triples, links
+        tuples.append((mention, url, source_uri, clean_sentence))
+        links.append((url, clean_sentence))
+    return tuples, links
 
 
-def extract_anchor_links(page):
+def extract_anchor_links(source_uri, page):
     links = []
     lexicon = []
     for line in page.split('\n'):
         for sentence in line.split('. '):
-            new_triples, new_links = get_mention_uri_context_triples(sentence)
-            if new_triples:
-                lexicon.extend(new_triples)
+            new_tuples, new_links = get_mention_uri_context_tuples(source_uri, sentence)
+            if new_tuples:
+                lexicon.extend(new_tuples)
             if new_links:
                 links.extend(new_links)
     return lexicon, list(set(links))  # ignore the repeated links
@@ -249,13 +249,13 @@ def get_links(xmlf):
         if page_type == 'redirect':
             target_uri = format_as_uri(page)
             # save the redirect as a mention to the uris
-            lexicon = [(current_title, target_uri, '')]
+            lexicon = [(current_title, target_uri, current_uri, '#REDIRECT')]
             lexicon_db.insert_mentions_uris(lexicon)
             # save the redirect links as links between uris
-            lexicon_db.insert_links_uri(current_uri, [target_uri])
+            lexicon_db.insert_links_uri(current_uri, [(target_uri, '#REDIRECT')])
         elif page:
             if current_title and len(current_title) > 0:
-                lexicon, links = extract_anchor_links(page)
+                lexicon, links = extract_anchor_links(current_uri, page)
                 # save the mention-uri pairs obtained in the current page
                 lexicon_db.insert_mentions_uris(lexicon)
                 # save the uris obtained in the page as the links to the current page's uri
@@ -280,7 +280,7 @@ def main():
     print("Starting the Entity Extraction process...")
     for title, page_type, categories, entities, links in get_links(options.wiki_file_path):
         count += 1
-        if count % 10000 == 0:
+        if count % 10 == 0:
             print("currently processing: ")
             print("="*65)
             print("Title: ", title)
