@@ -117,41 +117,51 @@ def remove_file(s):
     return s
 
 
+def is_tag(current_xml_tag, tag_string):
+    return current_xml_tag[1].tag.endswith(tag_string)
+
+
 def extract_page(xml_file):
     iterator = iterparse(xml_file)
-    current_xml_tag = next(iterator)
+    current_tag = next(iterator)
     title = None
     skip = False
-    while current_xml_tag:
-        if current_xml_tag[0] == 'end':
-            if current_xml_tag[1].tag.endswith("title"):
-                title = current_xml_tag[1].text
+    while current_tag:
+        if current_tag[0] == 'end':
+            if is_tag(current_tag, "title"):
+                title = current_tag[1].text
                 skip = False
             if not skip:
-                if current_xml_tag[1].tag.endswith("redirect"):
-                    redirect = current_xml_tag[1].attrib['title']
+                if is_tag(current_tag, "redirect"):
+                    redirect = current_tag[1].attrib['title']
                     if redirect:
                         mention = clean_title(title)
                         yield (mention, 'redirect', redirect)
                         skip = True
                         title = None
-                elif current_xml_tag[1].tag.endswith("ns"):
+                elif is_tag(current_tag, "ns"):
                     # if this is page is a template
-                    if current_xml_tag[1].text == '10':
+                    if current_tag[1].text == '10':
                         print(title, "TEMPLATE")
-                elif current_xml_tag[1].tag.endswith("text"):
-                    text = current_xml_tag[1].text
+                elif is_tag(current_tag, "text"):
                     link_regex = re.compile(r"#REDIRECT \[\[([^|\[\]]*?)\s*\]\]")
-                    for line in text.split('\n'):
-                        redirect_link = link_regex.findall(line)
-                        if redirect_link:
-                            mention = clean_title(title)
-                            yield (mention, 'redirect', redirect_link[0])
-                            skip = True
-                            title = None
-                    yield (title, 'text', text)
-                    title = None
-        current_xml_tag = next(iterator)
+                    text = current_tag[1].text
+                    if text:
+                        for line in text.split('\n'):
+                            redirect_link = link_regex.findall(line)
+                            if redirect_link:
+                                mention = clean_title(title)
+                                yield (mention, 'redirect', redirect_link[0])
+                                skip = True
+                                title = None
+                        yield (title, 'text', text)
+                        title = None
+        current_tag = next(iterator)
+
+
+def is_invalid_link(prefix, suffix):
+    return prefix == '<nowiki>' or prefix.startswith('<ref name=') or \
+           suffix in ['</nowiki>', '<nowiki />'] or suffix.endswith('</ref>')
 
 
 def get_mention_uri_context_tuples(source_uri, sentence):
@@ -160,11 +170,16 @@ def get_mention_uri_context_tuples(source_uri, sentence):
     #       [[#Links and URLs]] is a link to another section on the current page.
     #       [[#Links and URLs|Links and URLs]] is a link to the same section without showing the # symbol.
     # The regex below return the following groups:
-    #       match 1 = '<nowiki>' or ''
+    #       match 1 = '<nowiki>' or <ref_name=...> or ''
     #       match 2 = link or ''
     #       match 3 = mention or ''
-    #       match 4 = '</nowiki>' or '<nowiki />' or mention's suffix
-    link_regex = re.compile(r"(<nowiki>|)\[\[([^\[\]]*?)\|?\s*([^|\[\]]*?)\s*\]\](</nowiki>|<nowiki />|[^<.,\s]*|)")
+    #       match 4 = '</nowiki>' or '<nowiki />' or </ref> or mention's suffix
+    prefix_regex = r"(<nowiki>|<ref name=.*?>|)"
+    suffix_regex = r"(</nowiki>|,.*?</ref>|<nowiki />|[^<.,\s]*|)"
+    wikilink_regex = r"\[\[([^\[\]]*?)\|?\s*([^|\[\]]*?)\s*\]\]"
+    link_regex = re.compile(r"{prefix}{link}{suffix}".format(prefix=prefix_regex,
+                                                             link=wikilink_regex,
+                                                             suffix=suffix_regex))
     tuples = []
     links = []
     for link in link_regex.findall(sentence):
@@ -177,7 +192,7 @@ def get_mention_uri_context_tuples(source_uri, sentence):
         elif mention and mention.split(':')[0] in IGNORED_NAMESPACES:
             continue
         # ignore the links that should be ignored
-        if prefix == '<nowiki>' or suffix in ['</nowiki>', '<nowiki />']:
+        if is_invalid_link(prefix, suffix):
             continue
         elif suffix:
             # Support cases like: [[public transport]]ation. or [[bus]]es, [[taxicab]]s, and [[tram]]s.
@@ -186,15 +201,18 @@ def get_mention_uri_context_tuples(source_uri, sentence):
         if len(entity) < 2 or len(mention) < 2:
             continue
         # Sometimes the links are the mentions, in that case make them equal
-        # TODO: hide the parenthesis from the mention in this case
         if not entity:
             entity = mention
-        if not mention:
-            mention = entity
+            # hide the parenthesis from the mention in this case
+            link_mention_regex = re.compile(r"^([^\s.:#,]*?) \([^<.,\s]*\)$")
+            displayed_mention = link_mention_regex.findall(mention)
+            if displayed_mention:
+                mention = displayed_mention[0]
         # delete the # from the mention display and delete the "" from the mention (italicizes the displayed word)
         mention = mention.replace('#', '').replace('"', '')
         mention = remove_markup(mention)
         mention = mention.rstrip('\'"-,.:;!?})')
+        mention = mention.lstrip('\'"-,.:;!?({')
         url = format_as_uri(entity)
         clean_sentence = remove_markup(sentence)
         tuples.append((mention, url, source_uri, clean_sentence))
@@ -216,7 +234,11 @@ def extract_anchor_links(source_uri, page):
 
 
 def clean_title(title):
-    return re.sub(re.compile("|.*"), "", title)
+    if title:
+        return re.sub(re.compile("|.*"), "", title)
+    else:
+        print(title)
+        return ''
 
 
 def get_category(page):
@@ -231,14 +253,23 @@ def get_category(page):
     return categories
 
 
-def get_links(xmlf):
+def get_links(xmlf, article_numbers):
     lexicon_db = Lexicon()
+    article_count = 0
     for current_title, page_type, page in extract_page(xmlf):
-        current_title = clean_title(current_title)
-        current_uri = format_as_uri(current_title)
-        lexicon = []
-        links = []
-        categories = []
+        if article_count <= article_numbers:
+            continue
+        if not current_title:
+            continue
+        try:
+            current_title = clean_title(current_title)
+            current_uri = format_as_uri(current_title)
+        except Exception as error:
+            print(error)
+            print("Last article count: ", article_count)
+            lexicon = []
+            links = []
+            categories = []
         try:
             categories = get_category(page)
             if categories:
@@ -246,24 +277,30 @@ def get_links(xmlf):
                 lexicon_db.insert_categories_uri(current_uri, categories)
         except Exception as error:
             print(error)
-        if page_type == 'redirect':
-            target_uri = format_as_uri(page)
-            # save the redirect as a mention to the uris
-            lexicon = [(current_title, target_uri, current_uri, '#REDIRECT')]
-            lexicon_db.insert_mentions_uris(lexicon)
-            # save the redirect links as links between uris
-            lexicon_db.insert_links_uri(current_uri, [(target_uri, '#REDIRECT')])
-        elif page:
-            if current_title and len(current_title) > 0:
-                lexicon, links = extract_anchor_links(current_uri, page)
-                # save the mention-uri pairs obtained in the current page
+        try:
+            if page_type == 'redirect':
+                target_uri = format_as_uri(page)
+                # save the redirect as a mention to the uris
+                lexicon = [(current_title, target_uri, current_uri, '#REDIRECT')]
                 lexicon_db.insert_mentions_uris(lexicon)
-                # save the uris obtained in the page as the links to the current page's uri
-                lexicon_db.insert_links_uri(current_uri, links)
-        yield(current_title, page_type, categories, lexicon, links)
+                # save the redirect links as links between uris
+                lexicon_db.insert_links_uri(current_uri, [(target_uri, '#REDIRECT')])
+            elif page:
+                if current_title and len(current_title) > 0:
+                    lexicon, links = extract_anchor_links(current_uri, page)
+                    # save the mention-uri pairs obtained in the current page
+                    lexicon_db.insert_mentions_uris(lexicon)
+                    # save the uris obtained in the page as the links to the current page's uri
+                    lexicon_db.insert_links_uri(current_uri, links)
+                yield(current_title, page_type, categories, lexicon, links)
+        except Exception as error:
+            print(error)
+            print("Last article count: ", article_count)
+        article_count += 1
 
 
 def format_as_uri(entity):
+    assert entity
     return 'https://en.wikipedia.org/wiki/{}'.format('_'.join(entity.split()))
 
 
@@ -274,13 +311,18 @@ def main():
                              default='./data/wiki.xml',
                              help='Sets the path to wikipedia dump xml file',
                              type=str)
+    args_parser.add_argument('--article_number',
+                             dest='article_number',
+                             default=-1,
+                             help='amount of articles already processed before',
+                             type=int)
     options = args_parser.parse_args()
     # segment the text in the input files
     count = 0
     print("Starting the Entity Extraction process...")
-    for title, page_type, categories, entities, links in get_links(options.wiki_file_path):
+    for title, page_type, categories, entities, links in get_links(options.wiki_file_path, options.article_number):
         count += 1
-        if count % 10 == 0:
+        if count % 1000 == 0:
             print("currently processing: ")
             print("="*65)
             print("Title: ", title)
