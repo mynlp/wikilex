@@ -165,7 +165,7 @@ def is_invalid_link(prefix, suffix):
            suffix in ['</nowiki>', '<nowiki />'] or suffix.endswith('</ref>')
 
 
-def get_mention_uri_context_triples(sentence):
+def get_mention_uri_context_tuples(source_uri, sentence):
     # Details at https://en.wikipedia.org/wiki/Help:Wiki_markup
     # TODO: Support this case:
     #       [[#Links and URLs]] is a link to another section on the current page.
@@ -181,7 +181,7 @@ def get_mention_uri_context_triples(sentence):
     link_regex = re.compile(r"{prefix}{link}{suffix}".format(prefix=prefix_regex,
                                                              link=wikilink_regex,
                                                              suffix=suffix_regex))
-    triples = []
+    tuples = []
     links = []
     for link in link_regex.findall(sentence):
         if not link:
@@ -216,19 +216,19 @@ def get_mention_uri_context_triples(sentence):
         mention = mention.lstrip('\'"-,.:;!?({')
         url = format_as_uri(entity)
         clean_sentence = remove_markup(sentence)
-        triples.append((mention, url, clean_sentence))
-        links.append(url)
-    return triples, links
+        tuples.append((mention, url, source_uri, clean_sentence))
+        links.append((url, clean_sentence))
+    return tuples, links
 
 
-def extract_anchor_links(page):
+def extract_anchor_links(source_uri, page):
     links = []
     lexicon = []
     for line in page.split('\n'):
         for sentence in line.split('. '):
-            new_triples, new_links = get_mention_uri_context_triples(sentence)
-            if new_triples:
-                lexicon.extend(new_triples)
+            new_tuples, new_links = get_mention_uri_context_tuples(source_uri, sentence)
+            if new_tuples:
+                lexicon.extend(new_tuples)
             if new_links:
                 links.extend(new_links)
     return lexicon, list(set(links))  # ignore the repeated links
@@ -260,35 +260,40 @@ def get_links(xmlf, article_numbers):
     for current_title, page_type, page in extract_page(xmlf):
         if article_count <= article_numbers:
             continue
+        if not current_title:
+            continue
         try:
-            if not current_title:
-                continue
             current_title = clean_title(current_title)
             current_uri = format_as_uri(current_title)
+        except Exception as error:
+            print(error)
+            print("Last article count: ", article_count)
             lexicon = []
             links = []
             categories = []
-            try:
-                categories = get_category(page)
-                if categories:
-                    # save the categories obtained for the current page
-                    lexicon_db.insert_categories_uri(current_uri, categories)
-            except Exception as error:
-                print(error)
+        try:
+            categories = get_category(page)
+            if categories:
+                # save the categories obtained for the current page
+                lexicon_db.insert_categories_uri(current_uri, categories)
+        except Exception as error:
+            print(error)
+        try:
             if page_type == 'redirect':
                 target_uri = format_as_uri(page)
                 # save the redirect as a mention to the uris
-                lexicon = [(current_title, target_uri, '')]
+                lexicon = [(current_title, target_uri, current_uri, '#REDIRECT')]
                 lexicon_db.insert_mentions_uris(lexicon)
                 # save the redirect links as links between uris
-                lexicon_db.insert_links_uri(current_uri, [target_uri])
+                lexicon_db.insert_links_uri(current_uri, [(target_uri, '#REDIRECT')])
             elif page:
-                lexicon, links = extract_anchor_links(page)
-                # save the mention-uri pairs obtained in the current page
-                lexicon_db.insert_mentions_uris(lexicon)
-                # save the uris obtained in the page as the links to the current page's uri
-                lexicon_db.insert_links_uri(current_uri, links)
-            yield(current_title, page_type, categories, lexicon, links)
+                if current_title and len(current_title) > 0:
+                    lexicon, links = extract_anchor_links(current_uri, page)
+                    # save the mention-uri pairs obtained in the current page
+                    lexicon_db.insert_mentions_uris(lexicon)
+                    # save the uris obtained in the page as the links to the current page's uri
+                    lexicon_db.insert_links_uri(current_uri, links)
+                yield(current_title, page_type, categories, lexicon, links)
         except Exception as error:
             print(error)
             print("Last article count: ", article_count)
