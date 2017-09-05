@@ -27,7 +27,7 @@ RE_P15 = re.compile('\[\[([fF]ile:|[iI]mage)[^]]*(\]\])', re.UNICODE)
 IGNORED_NAMESPACES = ['Wikipedia', 'Category', 'File', 'Portal', 'Template',
                       'MediaWiki', 'User', 'Help', 'Book', 'Draft', 'wikt',
                       'WikiProject', 'Special', 'Talk', 'Wiktionary', 'media',
-                      'User_talk']
+                      'User_talk', 'Wikipedia']
 MAX_ITERS = 5
 
 
