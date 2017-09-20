@@ -24,10 +24,9 @@ RE_P15 = re.compile('\[\[([fF]ile:|[iI]mage)[^]]*(\]\])', re.UNICODE)
 
 # MediaWiki namespaces (https://www.mediawiki.org/wiki/Manual:Namespace) that
 # ought to be ignored
-IGNORED_NAMESPACES = ['Wikipedia', 'Category', 'File', 'Portal', 'Template',
-                      'MediaWiki', 'User', 'Help', 'Book', 'Draft', 'User_talk',
-                      'WikiProject', 'Special', 'Talk', 'Wiktionary', 'media',
-                      'wikt', ]
+IGNORED_NAMESPACES = ['Book', 'Category', 'Draft', 'File', 'Help', 'MediaWiki', 'Portal', 'Special',
+                      'Talk', 'Template', 'User', 'User_talk', 'WikiProject', 'Wikipedia', 'Wiktionary',
+                      'media', 'wikt']
 
 MAX_ITERS = 5
 
