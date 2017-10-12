@@ -24,7 +24,7 @@ def extract_page(xml_file):
                         yield (mention, 'redirect', redirect)
                         valid_content = False
                         title = None
-                elif ':Template' in title or \
+                elif title and ':Template' in title or \
                         (is_tag(current_tag, "ns") and current_tag[1].text == '10'):
                         valid_content = False
                         title = None
