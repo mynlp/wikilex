@@ -31,15 +31,15 @@ def extract_mention_links(wiki_page):
         return current_uri, lexicon, links
 
 
-def process_xml_wiki(xmlf, article_numbers):
+def process_xml_wiki(xmlf):
     process_pool = Pool(processes=PROCESS_AMOUNT)
     lexicon_db = Lexicon()
     # save the categories obtained for the current page
-    with click.progressbar(process_pool.map(extract_categories, extract_page(xmlf)[article_numbers:]),
+    with click.progressbar(process_pool.map(extract_categories, extract_page(xmlf)),
                            label='obtaining categories') as categories_progress_bar:
         for source_uri, categories_list in categories_progress_bar:
             lexicon_db.insert_categories_uri(source_uri, categories_list)
-    with click.progressbar(process_pool.map(extract_mention_links, extract_page(xmlf)[article_numbers:]),
+    with click.progressbar(process_pool.map(extract_mention_links, extract_page(xmlf)),
                            label='obtaining mentions and links') as mention_link_progress_bar:
         for source_uri, lexicon, links in mention_link_progress_bar:
             lexicon_db.insert_links_uri(source_uri, links)
@@ -61,7 +61,7 @@ def main():
     options = args_parser.parse_args()
     # segment the text in the input files
     print("Starting the Entity Extraction process...")
-    process_xml_wiki(options.wiki_file_path, options.article_number)
+    process_xml_wiki(options.wiki_file_path)
 
 if __name__ == '__main__':
     main()
