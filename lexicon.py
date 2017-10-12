@@ -47,5 +47,5 @@ class Lexicon:
             query = query_file.read()
         cursor = self.connection.cursor()
         if linked_uris:
-            uri_links = [(source_uri, target_uri, sentence) for target_uri, sentence in linked_uris]
+            uri_links = [(source_uri, target_uri) for target_uri in linked_uris]
             cursor.executemany(query, uri_links)

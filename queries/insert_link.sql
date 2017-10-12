@@ -1,3 +1,3 @@
 -- list of values will be filled from the calling script
-INSERT INTO entities (source_uri, link_uri, sentence) VALUES (?, ?, ?)
+INSERT INTO entities (source_uri, target_uri) VALUES (?, ?)
 ;

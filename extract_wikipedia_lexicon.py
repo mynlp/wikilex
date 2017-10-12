@@ -219,7 +219,7 @@ def get_mention_uri_context_tuples(source_uri, sentence):
         url = format_as_uri(entity)
         clean_sentence = remove_markup(sentence)
         tuples.append((mention, url, source_uri, clean_sentence))
-        links.append((url, clean_sentence))
+        links.append(url)
     return tuples, links
 
 
