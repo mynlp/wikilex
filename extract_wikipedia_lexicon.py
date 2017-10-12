@@ -27,7 +27,7 @@ RE_P15 = re.compile('\[\[([fF]ile:|[iI]mage)[^]]*(\]\])', re.UNICODE)
 IGNORED_NAMESPACES = ['Wikipedia', 'Category', 'File', 'Portal', 'Template',
                       'MediaWiki', 'User', 'Help', 'Book', 'Draft', 'User_talk',
                       'WikiProject', 'Special', 'Talk', 'Wiktionary', 'media',
-                      'wikt', ]
+                      'wikt', 'Manual']
 
 MAX_ITERS = 5
 
@@ -144,7 +144,9 @@ def extract_page(xml_file):
                 elif is_tag(current_tag, "ns"):
                     # if this is page is a template
                     if current_tag[1].text == '10':
-                        print(title, "TEMPLATE")
+                        # print(title, "TEMPLATE")
+                        skip = True
+                        title = None
                 elif is_tag(current_tag, "text"):
                     link_regex = re.compile(r"#REDIRECT \[\[([^|\[\]]*?)\s*\]\]")
                     text = current_tag[1].text
